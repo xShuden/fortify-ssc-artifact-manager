@@ -22,15 +22,15 @@ A command-line tool to manage and list artifacts requiring approval in Fortify S
 ### Build from source
 
 ```bash
-git clone https://github.com/xShuden/ssc-artifact-manager.git
-cd ssc-artifact-manager
+git clone https://github.com/xShuden/fortify-ssc-artifact-manager.git
+cd fortify-ssc-artifact-manager
 go mod download
 go build -o ssc-approver
 ```
 
 ### Download binary
 
-Download the latest release from the [releases page](https://github.com/xShuden/ssc-artifact-manager/releases).
+Download the latest release from the [releases page](https://github.com/xShuden/fortify-ssc-artifact-manager/releases).
 
 ## Configuration 🔧
 
@@ -190,4 +190,4 @@ Created by [xShuden](https://github.com/xShuden)
 
 ## Support 💬
 
-For issues, questions, or suggestions, please [open an issue](https://github.com/xShuden/ssc-artifact-manager/issues) on GitHub.
+For issues, questions, or suggestions, please [open an issue](https://github.com/xShuden/fortify-ssc-artifact-manager/issues) on GitHub.
