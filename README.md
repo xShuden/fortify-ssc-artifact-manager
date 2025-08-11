@@ -5,12 +5,20 @@ A command-line tool to manage and list artifacts requiring approval in Fortify S
 ## Features ✨
 
 - 📋 List all artifacts with "Requires Approval" status across all projects
-- 🔎 View detailed processing messages (code line changes, etc.)
-- 🏷️ Filter by project name
-- 📊 Multiple output formats (Table, CSV, JSON)
+- 🔎 View detailed processing messages (code line changes, security warnings)
+- 🏷️ Filter artifacts by project name
+- 📊 Multiple output formats:
+  - **Table**: Human-readable ASCII tables
+  - **CSV**: For Excel/spreadsheet import
+  - **JSON**: For automation and API integration
 - 🗂️ List all projects and their versions
 - 📦 View artifacts for specific project versions
-- 🔐 Flexible authentication (CLI flags, environment variables, config files)
+- 🔐 Flexible authentication options:
+  - Command-line flags
+  - Environment variables
+  - Configuration files (.env)
+- ⚡ Fast parallel scanning of multiple projects
+- 🔒 Supports self-signed certificates
 
 ## Installation 📦
 
@@ -74,6 +82,13 @@ FORTIFY_SSC_TOKEN=your-api-token
 # Export to CSV
 ./ssc-approver list -o csv > pending_approvals.csv
 
+# Export to JSON
+./ssc-approver list -o json > pending_approvals.json
+
+# JSON with jq processing
+./ssc-approver list -o json | jq '.[].project'
+./ssc-approver list -o json | jq '.[] | select(.file_size_mb | tonumber > 2)'
+
 # Combined: detailed view + project filter + custom server
 ./ssc-approver list -d -p "finance" -u https://ssc.example.com -t your-token
 ```
@@ -98,9 +113,19 @@ FORTIFY_SSC_TOKEN=your-api-token
 ./ssc-approver artifacts 123 -u https://ssc.example.com -t your-token
 ```
 
-## Output Examples 📊
+## Output Formats 📊
 
-### Standard output
+### Available Formats
+
+The tool supports three output formats:
+
+1. **Table Format** (default) - Human-readable ASCII table
+2. **CSV Format** - For spreadsheet applications and data processing
+3. **JSON Format** - For programmatic processing and automation
+
+### Format Examples
+
+#### Table Format (Default)
 ```
 Found 4 artifacts requiring approval:
 
@@ -110,6 +135,39 @@ Found 4 artifacts requiring approval:
 | finance-service    | 2025-08-08 17:05:21 | scan.fpr |    2.10   | 10.185.27.21   | Requires Approval |
 | backend-service    | 2025-08-08 16:52:19 | scan.fpr |    1.85   | 10.185.27.21   | Requires Approval |
 +--------------------+---------------------+----------+-----------+----------------+-------------------+
+```
+
+#### CSV Format
+```csv
+Project,Upload Date,File Name,Size,Upload IP,Messages
+finance-service - dev,2025-08-08 17:05:21,scan.fpr,2202009,10.185.27.21,"Code lines increased by 10%"
+backend-service - dev,2025-08-08 16:52:19,analysis.fpr,1939865,10.185.27.21,"New findings detected"
+```
+
+#### JSON Format
+```json
+[
+  {
+    "project": "finance-service - dev",
+    "upload_date": "2025-08-08 17:05:21",
+    "file_name": "scan.fpr",
+    "file_size_bytes": 2202009,
+    "file_size_mb": "2.10",
+    "upload_ip": "10.185.27.21",
+    "status": "Requires Approval",
+    "messages": "Code lines increased by 10%"
+  },
+  {
+    "project": "backend-service - dev",
+    "upload_date": "2025-08-08 16:52:19",
+    "file_name": "analysis.fpr",
+    "file_size_bytes": 1939865,
+    "file_size_mb": "1.85",
+    "upload_ip": "10.185.27.21",
+    "status": "Requires Approval",
+    "messages": "New findings detected"
+  }
+]
 ```
 
 ### Detailed view (with -d flag)
@@ -126,6 +184,53 @@ Found 2 artifacts requiring approval:
 |                    |                     |          |           |                | this Analysis Result may be from a different    |
 |                    |                     |          |           |                | codebase.                                        |
 +--------------------+---------------------+----------+-----------+----------------+--------------------------------------------------+
+```
+
+## Advanced Usage Examples 🚀
+
+### JSON Processing with jq
+
+```bash
+# Get all project names
+./ssc-approver list -o json | jq -r '.[].project' | sort -u
+
+# Filter artifacts larger than 2MB
+./ssc-approver list -o json | jq '.[] | select(.file_size_mb | tonumber > 2)'
+
+# Count artifacts per project
+./ssc-approver list -o json | jq 'group_by(.project) | .[] | {project: .[0].project, count: length}'
+
+# Export specific fields to CSV
+./ssc-approver list -o json | jq -r '.[] | [.project, .file_name, .upload_date] | @csv'
+```
+
+### Automation Scripts
+
+```bash
+#!/bin/bash
+# Daily approval check script
+
+ARTIFACTS=$(./ssc-approver list -o json)
+COUNT=$(echo "$ARTIFACTS" | jq '. | length')
+
+if [ "$COUNT" -gt 0 ]; then
+    echo "Found $COUNT artifacts requiring approval"
+    # Send notification or create ticket
+    echo "$ARTIFACTS" | jq -r '.[] | "\(.project): \(.file_name) - \(.upload_date)"'
+fi
+```
+
+### Integration with CI/CD
+
+```yaml
+# GitHub Actions example
+- name: Check SSC Approvals
+  run: |
+    ./ssc-approver list -u ${{ secrets.SSC_URL }} -t ${{ secrets.SSC_TOKEN }} -o json > artifacts.json
+    if [ $(jq '. | length' artifacts.json) -gt 0 ]; then
+      echo "::warning::Artifacts pending approval in SSC"
+      jq -r '.[] | "- \(.project): \(.file_name)"' artifacts.json
+    fi
 ```
 
 ## Creating an SSC API Token 🔑
@@ -188,6 +293,23 @@ Created by [xShuden](https://github.com/xShuden)
 - [Tablewriter](https://github.com/olekukonko/tablewriter) for formatted output
 - [Color](https://github.com/fatih/color) for colored terminal output
 
+## Roadmap 🗺️
+
+- [ ] Add `approve` command to approve artifacts directly from CLI
+- [ ] Add `reject` command with comment support
+- [ ] Support for bulk operations
+- [ ] Add filtering by date range
+- [ ] Export detailed reports in PDF format
+- [ ] Slack/Teams notification integration
+- [ ] Configuration profiles for multiple SSC instances
+- [ ] Interactive mode with artifact selection
+
 ## Support 💬
 
 For issues, questions, or suggestions, please [open an issue](https://github.com/xShuden/fortify-ssc-artifact-manager/issues) on GitHub.
+
+## Star History ⭐
+
+If you find this tool useful, please consider giving it a star on GitHub!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=xShuden/fortify-ssc-artifact-manager&type=Date)](https://star-history.com/#xShuden/fortify-ssc-artifact-manager&Date)

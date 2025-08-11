@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"ssc-approver/client"
@@ -107,7 +108,53 @@ func listArtifacts(cmd *cobra.Command, args []string) {
 func displayArtifacts(artifacts []models.Artifact) {
 	color.Yellow("\nFound %d artifacts requiring approval:\n", len(artifacts))
 
-	if outputFormat == "csv" {
+	switch outputFormat {
+	case "json":
+		// JSON output
+		type JSONArtifact struct {
+			Project         string `json:"project"`
+			UploadDate      string `json:"upload_date"`
+			FileName        string `json:"file_name"`
+			FileSizeBytes   int64  `json:"file_size_bytes"`
+			FileSizeMB      string `json:"file_size_mb"`
+			UploadIP        string `json:"upload_ip"`
+			Status          string `json:"status"`
+			Messages        string `json:"messages,omitempty"`
+		}
+		
+		var jsonArtifacts []JSONArtifact
+		for _, artifact := range artifacts {
+			uploadDate := ""
+			if artifact.UploadDate != nil {
+				uploadDate = artifact.UploadDate.Format("2006-01-02 15:04:05")
+			}
+			
+			jsonArtifact := JSONArtifact{
+				Project:       artifact.ProjectVersionName,
+				UploadDate:    uploadDate,
+				FileName:      artifact.FileName,
+				FileSizeBytes: artifact.FileSize,
+				FileSizeMB:    fmt.Sprintf("%.2f", float64(artifact.FileSize)/(1024*1024)),
+				UploadIP:      artifact.UploadIP,
+				Status:        "Requires Approval",
+			}
+			
+			if showDetails {
+				jsonArtifact.Messages = extractMessages(artifact)
+			}
+			
+			jsonArtifacts = append(jsonArtifacts, jsonArtifact)
+		}
+		
+		output, err := json.MarshalIndent(jsonArtifacts, "", "  ")
+		if err != nil {
+			color.Red("Error formatting JSON: %v", err)
+			return
+		}
+		fmt.Println(string(output))
+		return
+		
+	case "csv":
 		fmt.Println("Project,Upload Date,File Name,Size,Upload IP,Messages")
 		for _, artifact := range artifacts {
 			uploadDate := ""
@@ -124,10 +171,10 @@ func displayArtifacts(artifacts []models.Artifact) {
 				strings.ReplaceAll(messages, "\"", "\"\""))
 		}
 		return
-	}
-
-	// Table format (default)
-	table := tablewriter.NewWriter(os.Stdout)
+		
+	default:
+		// Table format (default)
+		table := tablewriter.NewWriter(os.Stdout)
 	
 	if showDetails {
 		table.SetHeader([]string{"Project", "Upload Date", "File Name", "Size (MB)", "Upload IP", "Processing Messages"})
@@ -168,10 +215,11 @@ func displayArtifacts(artifacts []models.Artifact) {
 		}
 	}
 
-	table.Render()
+		table.Render()
 
-	if !showDetails {
-		color.Cyan("\nTip: Use -d or --details flag to see processing messages for each artifact")
+		if !showDetails {
+			color.Cyan("\nTip: Use -d or --details flag to see processing messages for each artifact")
+		}
 	}
 }
 
